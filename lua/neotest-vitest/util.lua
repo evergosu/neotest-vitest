@@ -244,8 +244,43 @@ function M.cleanAnsi(s)
     :gsub("\x1b%[%d+;%d+m", "")
     :gsub("\x1b%[%d+m", "")
 end
+
 function M.parsed_json_to_results(data, output_file, consoleOut)
   local tests = {}
+
+  local function remove_gherkin_predicate(str)
+    local predicates = {
+      "Feature:",
+      "Scenario:",
+      "ScenarioOutline:",
+      "RuleScenario:",
+      "Given",
+      "When",
+      "Then",
+      "And",
+      "But",
+    }
+
+    local first_word = str:match("^%S+")
+
+    for _, keyword in ipairs(predicates) do
+      if first_word == keyword then
+        return str:gsub("^%S+%s*", "", 1)
+      end
+    end
+
+    return str
+  end
+
+  local function filter_gherkin_features(array)
+    local filtered_array = {}
+    for _, value in ipairs(array) do
+      if not value:match("^%s*Feature:") then
+        table.insert(filtered_array, value)
+      end
+    end
+    return filtered_array
+  end
 
   for _, testResult in pairs(data.testResults) do
     local testFn = testResult.name
@@ -258,11 +293,13 @@ function M.parsed_json_to_results(data, output_file, consoleOut)
         return {}
       end
 
+      name = remove_gherkin_predicate(name)
+
       local keyid = testFn
 
-      for _, value in ipairs(assertionResult.ancestorTitles) do
+      for _, value in ipairs(filter_gherkin_features(assertionResult.ancestorTitles)) do
         if value ~= "" then
-          keyid = keyid .. "::" .. value
+          keyid = keyid .. "::" .. remove_gherkin_predicate(value)
         end
       end
 
