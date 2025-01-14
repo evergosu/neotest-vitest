@@ -159,9 +159,25 @@ function adapter.discover_positions(path)
       )
       arguments: (arguments (string (string_fragment) @test.name) (arrow_function))
     )) @test.definition
+
+    ; -- Gherkin --
+    ((call_expression
+      function: (identifier) @func_name (#any-of? @func_name "Scenario" "ScenarioOutline" "RuleScenario")
+      arguments: (arguments (string (string_fragment) @namespace.name) (arrow_function))
+    )) @namespace.definition
+    ((call_expression
+      function: (identifier) @func_name (#any-of? @func_name "Given" "When" "Then" "And" "But")
+      arguments: (arguments (string (string_fragment) @test.name) (arrow_function))
+    )) @test.definition
   ]]
+
   query = query .. string.gsub(query, "arrow_function", "function_expression")
-  return lib.treesitter.parse_positions(path, query, { nested_tests = true })
+
+  return lib.treesitter.parse_positions(
+    path,
+    query,
+    { nested_tests = true, nested_namespaces = true }
+  )
 end
 
 ---@param path string
