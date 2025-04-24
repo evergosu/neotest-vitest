@@ -15,8 +15,6 @@ local util = require("neotest-vitest.util")
 ---@class neotest.Adapter
 local adapter = { name = "neotest-vitest" }
 
-local rootPackageJson = vim.fn.getcwd() .. "/package.json"
-
 ---@param packageJsonContent string
 ---@return boolean
 local function hasVitestDependencyInJson(packageJsonContent)
@@ -37,9 +35,11 @@ end
 
 ---@return boolean
 local function hasRootProjectVitestDependency()
+  local rootPackageJson = vim.loop.cwd() .. "/package.json"
+
   local success, packageJsonContent = pcall(lib.files.read, rootPackageJson)
   if not success then
-    print("cannot read package.json")
+    print("cannot read package.json, got " .. rootPackageJson)
     return false
   end
 
@@ -170,9 +170,9 @@ function adapter.discover_positions(path)
       arguments: (arguments (string (string_fragment) @test.name) (arrow_function))
     )) @test.definition
     ((call_expression
-      function: (identifier) @func_name
+      function: (identifier) @test.name
       arguments: (arguments (identifier) @param_name (#any-of? @param_name "Given" "When" "Then" "And" "But"))
-    )) @test.definition
+    ))
   ]]
 
   query = query .. string.gsub(query, "arrow_function", "function_expression")
@@ -298,7 +298,7 @@ function adapter.build_spec(args)
     return
   end
   local names = {}
-  while tree and tree:data().type ~= "file" do
+  while tree and tree:data().type ~= "file" and tree:data().type ~= "dir" do
     table.insert(names, 1, tree:data().name)
     tree = tree:parent() --[[@as neotest.Tree]]
   end
