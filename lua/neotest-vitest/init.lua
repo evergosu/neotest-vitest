@@ -169,6 +169,10 @@ function adapter.discover_positions(path)
       function: (identifier) @func_name (#any-of? @func_name "Given" "When" "Then" "And" "But")
       arguments: (arguments (string (string_fragment) @test.name) (arrow_function))
     )) @test.definition
+    ((call_expression
+      function: (identifier) @func_name
+      arguments: (arguments (identifier) @param_name (#any-of? @param_name "Given" "When" "Then" "And" "But"))
+    )) @test.definition
   ]]
 
   query = query .. string.gsub(query, "arrow_function", "function_expression")
