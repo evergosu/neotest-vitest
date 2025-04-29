@@ -110,6 +110,26 @@ function adapter.is_test_file(file_path)
   return is_test_file and hasVitestDependency(file_path)
 end
 
+local function isCamelOrPascal(str)
+  return not str:find("%s") and str:find("%u")
+end
+
+local function camelToSentence(str)
+  return str:gsub("(%l)(%u)", "%1 %2"):lower()
+end
+
+---@param tree neotest.Tree
+---@return neotest.Tree | nil
+local function renameCamelOrPascalTests(tree)
+  for _, value in tree:iter_nodes() do
+    local name = value:closest_value_for("name")
+
+    if isCamelOrPascal(name) then
+      value._data.name = camelToSentence(name)
+    end
+  end
+end
+
 ---@async
 ---@return neotest.Tree | nil
 function adapter.discover_positions(path)
@@ -161,27 +181,38 @@ function adapter.discover_positions(path)
     )) @test.definition
 
     ; -- Gherkin --
+    ; Matches: `Scenario('test description', steps)`
     ((call_expression
       function: (identifier) @func_name (#any-of? @func_name "Scenario" "ScenarioOutline" "RuleScenario")
       arguments: (arguments (string (string_fragment) @namespace.name) (arrow_function))
     )) @namespace.definition
+    ; Matches: `Given('test name', test)`
     ((call_expression
       function: (identifier) @func_name (#any-of? @func_name "Given" "When" "Then" "And" "But")
       arguments: (arguments (string (string_fragment) @test.name) (arrow_function))
     )) @test.definition
+    ; Matches: `aPreDefinedStep(Given)`
     ((call_expression
       function: (identifier) @test.name
       arguments: (arguments (identifier) @param_name (#any-of? @param_name "Given" "When" "Then" "And" "But"))
-    ))
+    )) @test.definition
+    ; Matches: `steps.aPreDefinedStep(Given)`
+    ((call_expression
+      function: (member_expression
+      object: (identifier)
+      property: (property_identifier) @test.name)
+      arguments: (arguments (identifier) @param_name (#any-of? @param_name "Given" "When" "Then" "And" "But"))
+    )) @test.definition
   ]]
 
   query = query .. string.gsub(query, "arrow_function", "function_expression")
 
-  return lib.treesitter.parse_positions(
-    path,
-    query,
-    { nested_tests = true, nested_namespaces = true }
-  )
+  local results =
+    lib.treesitter.parse_positions(path, query, { nested_tests = false, nested_namespaces = true })
+
+  renameCamelOrPascalTests(results)
+
+  return results
 end
 
 ---@param path string
